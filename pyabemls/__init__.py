@@ -71,7 +71,8 @@ class ABEMLS_project():
     """
 
     GET_ELECTRODETESTS = """
-        SELECT ID
+        SELECT
+               ID
              , TaskID
              , StationID
              , SwitchNumber
@@ -89,7 +90,8 @@ class ABEMLS_project():
     """
 
     GET_TASK_ELECTRODETEST = """
-        SELECT ID
+        SELECT
+               ID
              , TaskID
              , StationID
              , SwitchNumber
@@ -182,6 +184,30 @@ class ABEMLS_project():
         LEFT JOIN (SELECT * FROM TaskSettings WHERE Setting="ProtocolFile")     as ts1 ON ts1.key1=Tasks.ID
         LEFT JOIN (SELECT * FROM TaskSettings WHERE Setting="SpreadFile")       as ts2 ON ts2.key1=Tasks.ID
         LEFT JOIN (SELECT * FROM TaskSettings WHERE Setting="BaseReference")    as ts4 ON ts4.key1=Tasks.ID
+        GROUP BY Tasks.ID
+    """
+
+    GET_TASK_INFO_W_COORDS_SQL = """
+        SELECT
+            Tasks.ID,
+            Tasks.Name,
+            Tasks.PosX, Tasks.PosY, Tasks.PosZ,
+            Tasks.SpacingX, Tasks.SpacingY, Tasks.SpacingZ,
+            Tasks.ArrayCode,Tasks.Time,
+            ts1.Value as ProtocolFile,
+            ts2.Value as SpreadFile,
+            ts4.Value as BaseReference,
+            Log2.PosLatitude, Log2.PosLongitude, Log2.PosQuality,
+            COUNT(DISTINCT ndt.ID) as nData,
+            COUNT(DISTINCT ndt.DPID) as nDipoles,
+            COUNT(DISTINCT e.ID) as nECRdata
+        FROM Tasks
+        LEFT JOIN ElectrodeTestData as e ON Tasks.ID=e.TaskID
+        LEFT JOIN (SELECT * FROM DPV WHERE Channel>0 AND Channel<13)            as ndt ON ndt.TaskID=Tasks.ID
+        LEFT JOIN (SELECT * FROM TaskSettings WHERE Setting="ProtocolFile")     as ts1 ON ts1.key1=Tasks.ID
+        LEFT JOIN (SELECT * FROM TaskSettings WHERE Setting="SpreadFile")       as ts2 ON ts2.key1=Tasks.ID
+        LEFT JOIN (SELECT * FROM TaskSettings WHERE Setting="BaseReference")    as ts4 ON ts4.key1=Tasks.ID
+        LEFT JOIN (SELECT DISTINCT PosLatitude, PosLongitude, PosQuality, TaskID FROM Log) as Log2 ON Log2.TaskID=Tasks.ID
         GROUP BY Tasks.ID
     """
 
@@ -293,7 +319,8 @@ class ABEMLS_project():
         except:
             ntasks = 0
 
-        cur.execute(self.GET_TASK_INFO_SQL)
+        #cur.execute(self.GET_TASK_INFO_SQL)
+        cur.execute(self.GET_TASK_INFO_W_COORDS_SQL)
         tasks = cur.fetchall()
         #tasks = []
         #for n in xrange(1,ntasks+1):
