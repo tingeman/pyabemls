@@ -175,6 +175,7 @@ class ABEMLS_project():
             ts1.Value as ProtocolFile,
             ts2.Value as SpreadFile,
             ts4.Value as BaseReference,
+            Log2.PosLatitude, Log2.PosLongitude, Log2.PosQuality,
             COUNT(DISTINCT ndt.ID) as nData,
             COUNT(DISTINCT ndt.DPID) as nDipoles,
             COUNT(DISTINCT e.ID) as nECRdata
@@ -184,10 +185,11 @@ class ABEMLS_project():
         LEFT JOIN (SELECT * FROM TaskSettings WHERE Setting="ProtocolFile")     as ts1 ON ts1.key1=Tasks.ID
         LEFT JOIN (SELECT * FROM TaskSettings WHERE Setting="SpreadFile")       as ts2 ON ts2.key1=Tasks.ID
         LEFT JOIN (SELECT * FROM TaskSettings WHERE Setting="BaseReference")    as ts4 ON ts4.key1=Tasks.ID
+        LEFT JOIN (SELECT DISTINCT PosLatitude, PosLongitude, PosQuality, TaskID FROM Log) as Log2 ON Log2.TaskID=Tasks.ID
         GROUP BY Tasks.ID
     """
 
-    GET_TASK_INFO_W_COORDS_SQL = """
+    GET_TASK_INFO_NO_COUNT_SQL = """
         SELECT
             Tasks.ID,
             Tasks.Name,
@@ -198,12 +200,9 @@ class ABEMLS_project():
             ts2.Value as SpreadFile,
             ts4.Value as BaseReference,
             Log2.PosLatitude, Log2.PosLongitude, Log2.PosQuality,
-            COUNT(DISTINCT ndt.ID) as nData,
-            COUNT(DISTINCT ndt.DPID) as nDipoles,
             COUNT(DISTINCT e.ID) as nECRdata
         FROM Tasks
         LEFT JOIN ElectrodeTestData as e ON Tasks.ID=e.TaskID
-        LEFT JOIN (SELECT * FROM DPV WHERE Channel>0 AND Channel<13)            as ndt ON ndt.TaskID=Tasks.ID
         LEFT JOIN (SELECT * FROM TaskSettings WHERE Setting="ProtocolFile")     as ts1 ON ts1.key1=Tasks.ID
         LEFT JOIN (SELECT * FROM TaskSettings WHERE Setting="SpreadFile")       as ts2 ON ts2.key1=Tasks.ID
         LEFT JOIN (SELECT * FROM TaskSettings WHERE Setting="BaseReference")    as ts4 ON ts4.key1=Tasks.ID
@@ -231,7 +230,7 @@ class ABEMLS_project():
 
         conn = sqlite3.connect(filename)
         cur = conn.cursor()
-        self.get_tasklist(cur=cur)
+        self.get_tasklist(cur=cur, no_count=True)
         self.get_datatypes_from_db(cur=cur)
         cur.close()
         conn.close()
@@ -302,7 +301,7 @@ class ABEMLS_project():
 
         return rows, column_titles
 
-    def get_tasklist(self, cur=None):
+    def get_tasklist(self, cur=None, no_count=False):
         """Read tasks table from db file
 
         """
@@ -320,7 +319,10 @@ class ABEMLS_project():
             ntasks = 0
 
         #cur.execute(self.GET_TASK_INFO_SQL)
-        cur.execute(self.GET_TASK_INFO_W_COORDS_SQL)
+        if no_count:
+            cur.execute(self.GET_TASK_INFO_NO_COUNT_SQL)
+        else:
+            cur.execute(self.GET_TASK_INFO_SQL)
         tasks = cur.fetchall()
         #tasks = []
         #for n in xrange(1,ntasks+1):
