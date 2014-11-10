@@ -30,6 +30,7 @@ _ReSharper*/
 
 #python specific
 *.pyc
+*.egg
 
 # Setuptools distribution folder.
 /dist/
