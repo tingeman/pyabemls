@@ -20,6 +20,7 @@ class ABEMLS_project():
 
     """
 
+    # Define sql queries to retrieve different types of data from database.
     GETDATA_SQL = """
         SELECT
             DPV.TaskID,
@@ -40,10 +41,11 @@ class ABEMLS_project():
             Measures.IntPowerVolt,
             Measures.ExtPowerVolt,
             Measures.Temp
-        FROM DPV, DP_ABMN, DP_MEASURE, Measures
-        WHERE DPV.MeasureID=DP_MEASURE.MeasureID AND DP_ABMN.ID=DP_MEASURE.DPID AND Measures.ID=DP_MEASURE.MeasureID
-            AND DPV.DatatypeID=5
-            AND DPV.Channel=1
+        FROM DPV, DP_ABMN, Measures
+        WHERE
+            DPV.MeasureID=Measures.MeasureID AND
+            DPV.DPID=DP_ABMN.ID AND
+            DPV.DatatypeID=5
     """
 
     GET_TASK_SQL = """
@@ -61,13 +63,11 @@ class ABEMLS_project():
             DPV.DataSDev,
             DPV.MCycles,
             DPV.SeqNum
-        FROM DPV, DP_ABMN, DP_MEASURE, Measures
+        FROM DPV, DP_ABMN, Measures
         WHERE
             DPV.TaskID=? AND
-            DPV.MeasureID=DP_MEASURE.MeasureID AND
-            DP_ABMN.ID=DP_MEASURE.DPID AND
-            DP_ABMN.ID=DPV.DPID AND
-            Measures.ID=DP_MEASURE.MeasureID
+            DPV.MeasureID=Measures.ID AND
+            DPV.DPID=DP_ABMN.ID
     """
 
     GET_ELECTRODETESTS = """
@@ -110,25 +110,6 @@ class ABEMLS_project():
     """
 
 
-    # GET_TASKS_INFO_SQL = """
-    #     SELECT
-    #         Tasks.ID,
-    #         Tasks.Name,
-    #         Tasks.PosX, Tasks.PosY, Tasks.PosZ,
-    #         Tasks.SpacingX, Tasks.SpacingY, Tasks.SpacingZ,
-    #         Tasks.ArrayCode,Tasks.Time,
-    #         COUNT(*) AS ndat
-    #     FROM (
-    #         SELECT *
-    #         FROM DPV
-    #         WHERE
-    #             DPV.Channel>0 AND DPV.Channel<13
-    #         GROUP BY
-    #             DPV.TaskID, DPV.MeasureID, DPV.Channel
-    #     ) AS NdatTable
-    #     LEFT JOIN Tasks ON Tasks.ID=NdatTable.TaskID
-    # """
-
     GET_TASK_INFO_SQL_BACKUP = """
         SELECT
             Tasks.ID,
@@ -146,23 +127,6 @@ class ABEMLS_project():
                 TaskID, MeasureID, Channel
         ) AS NdatTable, Tasks
         WHERE Tasks.ID=NdatTable.TaskID
-    """
-
-
-    GET_TASK_INFO_SQL_BACKUP2 = """
-        SELECT
-            Tasks.ID,
-            Tasks.Name,
-            Tasks.PosX, Tasks.PosY, Tasks.PosZ,
-            Tasks.SpacingX, Tasks.SpacingY, Tasks.SpacingZ,
-            Tasks.ArrayCode,Tasks.Time,
-            COUNT(DISTINCT ndt.ID) as nData,
-            COUNT(DISTINCT ndt.DPID) as nDipoles,
-            COUNT(DISTINCT e.ID) as nECRdata
-        FROM Tasks
-        LEFT JOIN ElectrodeTestData as e ON Tasks.ID=e.TaskID
-        LEFT JOIN (SELECT * FROM DPV WHERE Channel>0 AND Channel<13) as ndt ON ndt.TaskID=Tasks.ID
-        GROUP BY Tasks.ID
     """
 
     GET_TASK_INFO_SQL = """
@@ -209,15 +173,6 @@ class ABEMLS_project():
         LEFT JOIN (SELECT DISTINCT PosLatitude, PosLongitude, PosQuality, TaskID FROM Log) as Log2 ON Log2.TaskID=Tasks.ID
         GROUP BY Tasks.ID
     """
-
-    # GET_TASKS_INFO_SQL = """
-    #     SELECT DPV.TaskID, COUNT(*)
-    #     FROM DPV
-    #     WHERE
-    #         DPV.Channel>0 AND DPV.Channel<13
-    #     GROUP BY
-    #         DPV.TaskID, DPV.MeasureID, DPV.Channel
-    # """
 
 
     def __init__(self, filename, ):
@@ -363,8 +318,16 @@ class ABEMLS_project():
     def get_task(self, task_id=1, condensed=False, cur=None):
         """Read task data from db file
 
-        If condensed=True, all parameters for one channel will be collected
-        in one row of the resulting array.
+        :param task_id: integer
+            The index (1-based) of the task to retrieve. If omitted, TaskID 1 is returned.
+        :param condensed: Boolean
+            If condensed=True, all parameters for one channel will be collected
+            in one row of the resulting array.
+        :param cur: sql cursor
+            Cursor into the sql database. If omitted, a temporary cursor will be created.
+
+        Returns: tuple of two dataframes
+            Returns task measurements and electrode test data in two separate dataframes.
         """
 
         temp_cur = False
