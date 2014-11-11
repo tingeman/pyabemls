@@ -196,11 +196,17 @@ class ABEMLS_project():
     """
     # Rememeber to add "WHERE acqs.key2=" claues when querying
 
+    GET_SESSIONS_SQL = """
+        SELECT
+            *
+        FROM Sessions
+    """
+
 
     def __init__(self, filename, project_name=None):
         # Define instance variables
         self.name = project_name
-        self.filename = None
+        self.filename = filename
         self.tasks = None
         self.task_cols = None
         self.spread_files = dict()
@@ -210,6 +216,7 @@ class ABEMLS_project():
         cur = conn.cursor()
         self.get_tasklist(cur=cur, no_count=True)
         self.get_datatypes_from_db(cur=cur)
+        self.sessions = self.get_sessions(cur=cur)
         cur.close()
         conn.close()
         self.filename = filename
@@ -460,6 +467,51 @@ class ABEMLS_project():
         else:
             # Fetch all acquisition settings
             sql = self.GET_ACQ_SETTINGS_SQL
+
+        rows, cols = self.execute_sql(sql, args=args)
+
+        if rows:
+            return DataFrame(rows, columns=cols)
+        else:
+            return None
+
+    def get_sessions(self, session_id=None, task_id=None, cur=None):
+        """Returns a dataframe with the acquisition settings of the specified session or task,
+        or all settings if session_id and task_id is None. You should pass EITHER seesion_id
+        OR task_id, NOT both!
+
+        :param session_id: integer or iterable
+            The SessionID of the session to query for settings. If None is specified (default)
+            the method will retrieve all registered settings.
+
+        :param task_id: integer
+            The TaskID of the task to query for settings. If None is specified (default)
+            the method will retrieve all registered settings. A task may relate to several
+            sessions, if settings were changed during acquisition (or during electrode
+            testing).
+
+        :param cur: sql cursor
+            Cursor into the sql database. If omitted, a temporary cursor will be created.
+
+        :return: dataframe
+            Dataframe containing the acquisition settings.
+        """
+
+        args = None
+        if session_id is not None:
+            args = (session_id,)
+            if hasattr(session_id, '__iter__'):
+                sql = self.GET_SESSIONS_SQL + " WHERE ID in ?".format(session_id)
+            else:
+                sql = self.GET_SESSIONS_SQL + " WHERE ID=?".format(session_id)
+
+        elif task_id is not None:
+            args = (task_id,)
+            sql = self.GET_SESSIONS_SQL + \
+                  " WHERE Sessions.TaskID=?"
+        else:
+            # Fetch all acquisition settings
+            sql = self.GET_SESSIONS_SQL
 
         rows, cols = self.execute_sql(sql, args=args)
 
