@@ -174,6 +174,27 @@ class ABEMLS_project():
         GROUP BY Tasks.ID
     """
 
+    HAS_MEASUREMENTS_SQL = """
+        SELECT
+            DPV.TaskID,
+            DPV.MeasureID,
+            DPV.Channel,
+            DPV.DatatypeID,
+            DPV.DataValue,
+            DPV.DataSDev,
+            DPV.MCycles,
+            DPV.SeqNum
+        FROM DPV
+    """
+    # Remember to add WHERE clause and LIMIT when querying!
+
+    GET_ACQ_SETTINGS_SQL = """
+        SELECT
+            acqs.*
+        FROM AcqSettings AS acqs, Sessions
+    """
+    # Rememeber to add "WHERE acqs.key2=" claues when querying
+
 
     def __init__(self, filename, ):
         # Define instance variables
@@ -388,6 +409,94 @@ class ABEMLS_project():
             conn.close()
 
         return result
+
+    def get_acqsettings(self, session_id=None, task_id=None, cur=None):
+        """Returns a dataframe with the acquisition settings of the specified session or task,
+        or all settings if session_id and task_id is None. You should pass EITHER seesion_id
+        OR task_id, NOT both!
+
+        :param session_id: integer or iterable
+            The SessionID of the session to query for settings. If None is specified (default)
+            the method will retrieve all registered settings.
+
+        :param task_id: integer
+            The TaskID of the task to query for settings. If None is specified (default)
+            the method will retrieve all registered settings. A task may relate to several
+            sessions, if settings were changed during acquisition (or during electrode
+            testing).
+
+        :param cur: sql cursor
+            Cursor into the sql database. If omitted, a temporary cursor will be created.
+
+        :return: dataframe
+            Dataframe containing the acquisition settings.
+        """
+
+        args = None
+        if session_id is not None:
+            args = (session_id,)
+            if hasattr(session_id, '__iter__'):
+                sql = self.GET_ACQ_SETTINGS_SQL + " WHERE acqs.key2 in ?".format(session_id)
+            else:
+                sql = self.GET_ACQ_SETTINGS_SQL + " WHERE acqs.key2=?".format(session_id)
+
+        elif task_id is not None:
+            args = (task_id,)
+            sql = self.GET_ACQ_SETTINGS_SQL + \
+                  " WHERE acqs.key2=Sessions.ID " + \
+                  " AND Sessions.TaskID=?"
+        else:
+            # Fetch all acquisition settings
+            sql = self.GET_ACQ_SETTINGS_SQL
+
+        rows, cols = self.execute_sql(sql, args=args)
+
+        if rows:
+            return DataFrame(rows, columns=cols)
+        else:
+            return None
+
+
+
+    def has_measurements(self, task_id=None, cur=None):
+        """Evaluate whether the task has any measurement data available.
+
+        :param task_id: integer
+            The TaskID of the task to query for measurements. If None is specified (default)
+            the method will query whether the project has data in any task.
+
+        :param cur: sql cursor
+            Cursor into the sql database. If omitted, a temporary cursor will be created.
+
+        :return: boolean
+            True if data is present in task (or project if task_id is None), or False
+            if data is not present.
+        """
+
+        temp_cur = False
+        if cur is None:
+            temp_cur = True
+            conn = sqlite3.connect(self.filename)
+            cur = conn.cursor()
+
+        if task_id is not None:
+            cur.execute(self.HAS_MEASUREMENTS_SQL +
+                        " WHERE DPV.TaskID=? " +
+                        " LIMIT 10",
+                        (task_id,))
+        else:
+            cur.execute(self.HAS_MEASUREMENTS_SQL + " LIMIT 10")
+
+        task = cur.fetchall()
+
+        if temp_cur:
+            cur.close()
+            conn.close()
+
+        if task:
+            return True
+        else:
+            return False
 
 
     def get_spreadfile(self, fname, path=""):
