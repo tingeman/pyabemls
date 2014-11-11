@@ -211,12 +211,14 @@ class ABEMLS_project():
         self.task_cols = None
         self.spread_files = dict()
         self.datatypes = dict()
+        self.settings = dict()
 
         conn = sqlite3.connect(filename)
         cur = conn.cursor()
         self.get_tasklist(cur=cur, no_count=True)
         self.get_datatypes_from_db(cur=cur)
         self.sessions = self.get_sessions(cur=cur)
+        self.settings = self.get_settings_dict()
         cur.close()
         conn.close()
         self.filename = filename
@@ -427,6 +429,19 @@ class ABEMLS_project():
             cur.close()
             conn.close()
 
+        return result
+
+    def get_settings_dict(self, session_id=None, task_id=None, cur=None):
+        """Loads all acquisition settings from project file, and sets the instance settings attribute
+        with a dictionary containing dicts of name, value pairs as values and SessionID as key.
+        """
+
+        result = dict()
+        settings = self.get_acqsettings(session_id=None, task_id=None)
+
+        for session in settings['key2'].unique():
+            ses_set = settings[settings['key2'] == session]
+            result[session] = dict(ses_set[['Setting','Value']].values)
         return result
 
     def get_acqsettings(self, session_id=None, task_id=None, cur=None):
