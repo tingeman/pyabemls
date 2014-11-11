@@ -63,6 +63,7 @@ class ABEMLS_project():
             DPV.DataSDev,
             DPV.MCycles,
             DPV.SeqNum
+            Measures.SessionID
         FROM DPV, DP_ABMN, Measures
         WHERE
             DPV.TaskID=? AND
