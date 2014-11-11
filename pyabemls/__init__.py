@@ -591,18 +591,25 @@ class ABEMLS_project():
         return tree
 
 
-    def get_electrode_id(self, posx, posy=None, posz=None, path="",
-                         spreadfile="", task_id=None):
-        #pdb.set_trace()
+    def get_electrode_id(self, posx=None, posy=None, posz=None,
+                         switch_number=1, switch_address=None,
+                         spreadfile="", path="", task_id=None):
+
         if not spreadfile and task_id is not None:
             spreadfile = self.tasks.SpreadFile[self.tasks.ID==task_id][0]
 
         tree = self.get_spreadfile(spreadfile, path)
-        xpstring = ".//Electrode[X//text()=' {0} '".format(posx)
-        if posy is not None:
-            xpstring += " and Y//text()=' {0} '".format(posy)
-        if posz is not None:
-            xpstring += " and Z//text()=' {0} '".format(posz)
+        if posx is not None:
+            xpstring = ".//Electrode[X//text()=' {0} '".format(posx)
+            if posy is not None:
+                xpstring += " and Y//text()=' {0} '".format(posy)
+            if posz is not None:
+                xpstring += " and Z//text()=' {0} '".format(posz)
+        elif switch_address is not None:
+            if switch_number != 1:
+                raise NotImplementedError('Support for more than one switch is not implemented.')
+            xpstring = ".//Electrode[SwitchAddress//text()=' {0} '".format(switch_address)
+
         xpstring += "]//Id//text()"
 
         try:
