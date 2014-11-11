@@ -62,7 +62,7 @@ class ABEMLS_project():
             DPV.DataValue,
             DPV.DataSDev,
             DPV.MCycles,
-            DPV.SeqNum
+            DPV.SeqNum,
             Measures.SessionID
         FROM DPV, DP_ABMN, Measures
         WHERE
@@ -197,8 +197,9 @@ class ABEMLS_project():
     # Rememeber to add "WHERE acqs.key2=" claues when querying
 
 
-    def __init__(self, filename, ):
+    def __init__(self, filename, project_name=None):
         # Define instance variables
+        self.name = project_name
         self.filename = None
         self.tasks = None
         self.task_cols = None
@@ -212,6 +213,16 @@ class ABEMLS_project():
         cur.close()
         conn.close()
         self.filename = filename
+
+        # read textfile with project name if present
+        # it must have the same basename as the db-file,
+        # but with '_name.txt' added
+        name_filename = os.path.splitext(filename)[0]+'_name.txt'
+        if os.path.exists(name_filename) and project_name is None:
+            with open(name_filename, 'r') as f:
+                pname = f.read()
+            if pname:
+                self.name = pname
 
     def execute_sql(self, sql, cur=None, args=None):
         temp_cur = False
