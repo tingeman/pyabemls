@@ -1,13 +1,29 @@
 from tables import *
 import numpy as np
-import re
 import os.path
-import datetime as dt
-from matplotlib.dates import num2date, drange
+import warnings
 import sqlite3
 from pandas import DataFrame
 import pdb
 from lxml import etree
+
+
+DATATYPES = dict([
+ (1,  {'Name': u'SP',         'Symbol': u'SP',         'Unit': u'V',         'Explanation': u'SP'}),
+ (2,  {'Name': u'rho_app',    'Symbol': u'\\rho_a',    'Unit': u'\\Omega m', 'Explanation': u'Apparent Resistivity value'}),
+ (3,  {'Name': u'IP',         'Symbol': u'IP',         'Unit': u'mV/V',      'Explanation': u'One IP window'}),
+ (4,  {'Name': u'SNR',        'Symbol': u'SNR',        'Unit': u'dB',        'Explanation': u'Signal to noise ratio'}),
+ (5,  {'Name': u'R',          'Symbol': u'R',          'Unit': u'\\omega',   'Explanation': u'Resistance'}),
+ (6,  {'Name': u'I',          'Symbol': u'I',          'Unit': u'A',         'Explanation': u'Current'}),
+ (7,  {'Name': u'delta_U',    'Symbol': u'\\deltaU',   'Unit': u'V',         'Explanation': u'ResDeltaVoltage'}),
+ (8,  {'Name': u'm',          'Symbol': u'm',          'Unit': u'ms',        'Explanation': u'Chargeability'}),
+ (9,  {'Name': u'IP_delta_U', 'Symbol': u'IP\\deltaU', 'Unit': u'V',         'Explanation': u'IPDeltaVoltage'}),
+ (10, {'Name': u'Avg',        'Symbol': u'V',          'Unit': u'V',         'Explanation': u'Average'}),
+ (11, {'Name': u'Signal',     'Symbol': u'V',          'Unit': u'V',         'Explanation': u'Intermediary result'}),
+ (12, {'Name': u'IPSP',       'Symbol': u'V',          'Unit': u'V',         'Explanation': u'SP compensation'}),
+ (13, {'Name': u'Temp',       'Symbol': u'T',          'Unit': u'C',         'Explanation': u'Temperature'}),
+])
+
 
 def remove_comments(line, sep):
     for s in sep:
@@ -54,6 +70,7 @@ class ABEMLS_project():
             DPV.TaskID,
             DPV.MeasureID,
             DPV.Channel,
+            DPV.SeqNum,
             DPV.DatatypeID,
             DP_ABMN.APosX,DP_ABMN.APosY,DP_ABMN.APosZ,
             DP_ABMN.BPosX,DP_ABMN.BPosY,DP_ABMN.BPosZ,
@@ -62,7 +79,6 @@ class ABEMLS_project():
             DPV.DataValue,
             DPV.DataSDev,
             DPV.MCycles,
-            DPV.SeqNum,
             Measures.SessionID
         FROM DPV, DP_ABMN, Measures
         WHERE
@@ -203,10 +219,11 @@ class ABEMLS_project():
     """
 
 
-    def __init__(self, filename, project_name=None):
+    def __init__(self, filename, project_name=None, xml_path=None):
         # Define instance variables
         self.name = project_name
         self.filename = filename
+        self.xml_path = xml_path
         self.tasks = None
         self.task_cols = None
         self.spread_files = dict()
@@ -379,7 +396,7 @@ class ABEMLS_project():
             cur = conn.cursor()
 
         #pdb.set_trace()
-        cur.execute(self.GET_TASK_SQL, (task_id,))
+        cur.execute(self.GET_TASK_SQL, (int(task_id),))
         task = cur.fetchall()
         task_cols = [c[0] for c in cur.description]
 
@@ -401,6 +418,21 @@ class ABEMLS_project():
             result = condense_measurements(result, self.datatypes)
 
         return result, etest
+
+    def get_quadrupoles(self, task_id=None, cur=None):
+        """Reads the quadrupole information for the task specified (the DP_ABMN table)."""
+        sql = """
+            SELECT
+                *
+            FROM DP_ABMN
+            WHERE TaskID=?
+        """
+
+        rows, cols = self.execute_sql(sql, cur=None, args=(int(task_id),))
+        if rows:
+            return DataFrame(rows, columns=cols)
+        else:
+            return DataFrame()
 
     def get_electrodetest(self, task_id=None, cur=None):
         """Read electrode test data from db file. Test data will be read for
@@ -475,7 +507,7 @@ class ABEMLS_project():
                 sql = self.GET_ACQ_SETTINGS_SQL + " WHERE acqs.key2=?".format(session_id)
 
         elif task_id is not None:
-            args = (task_id,)
+            args = (int(task_id),)
             sql = self.GET_ACQ_SETTINGS_SQL + \
                   " WHERE acqs.key2=Sessions.ID " + \
                   " AND Sessions.TaskID=?"
@@ -521,7 +553,7 @@ class ABEMLS_project():
                 sql = self.GET_SESSIONS_SQL + " WHERE ID=?".format(session_id)
 
         elif task_id is not None:
-            args = (task_id,)
+            args = (int(task_id),)
             sql = self.GET_SESSIONS_SQL + \
                   " WHERE Sessions.TaskID=?"
         else:
@@ -562,7 +594,7 @@ class ABEMLS_project():
             cur.execute(self.HAS_MEASUREMENTS_SQL +
                         " WHERE DPV.TaskID=? " +
                         " LIMIT 10",
-                        (task_id,))
+                        (int(task_id),))
         else:
             cur.execute(self.HAS_MEASUREMENTS_SQL + " LIMIT 10")
 
@@ -585,9 +617,15 @@ class ABEMLS_project():
         if basename in self.spread_files.keys():
             tree = self.spread_files[basename]
         else:
+            if not path:
+                path = self.xml_path
             filename = os.path.join(path,basename)
-            tree = etree.parse(filename)
-            self.spread_files[basename] = tree
+            try:
+                tree = etree.parse(filename)
+                self.spread_files[basename] = tree
+            except:
+                warnings.warn("Spread file not found... ({0})".format(filename))
+                return None
         return tree
 
 
@@ -596,19 +634,19 @@ class ABEMLS_project():
                          spreadfile="", path="", task_id=None):
 
         if not spreadfile and task_id is not None:
-            spreadfile = self.tasks.SpreadFile[self.tasks.ID==task_id][0]
-
+            spreadfile = os.path.basename(self.tasks.SpreadFile[self.tasks.ID==task_id].values[0])
         tree = self.get_spreadfile(spreadfile, path)
+        #pdb.set_trace()
         if posx is not None:
-            xpstring = ".//Electrode[X//text()=' {0} '".format(posx)
+            xpstring = ".//Electrode[X//text()=' {0:.0f} '".format(posx)
             if posy is not None:
-                xpstring += " and Y//text()=' {0} '".format(posy)
-            if posz is not None:
-                xpstring += " and Z//text()=' {0} '".format(posz)
+                xpstring += " and Y//text()=' {0:.0f} '".format(posy)
+            #if posz is not None:
+            #    xpstring += " and Z//text()=' {0:.0f} '".format(posz)
         elif switch_address is not None:
             if switch_number != 1:
                 raise NotImplementedError('Support for more than one switch is not implemented.')
-            xpstring = ".//Electrode[SwitchAddress//text()=' {0} '".format(switch_address)
+            xpstring = ".//Electrode[SwitchAddress//text()=' {0:.0f} '".format(switch_address)
 
         xpstring += "]//Id//text()"
 
