@@ -59,7 +59,7 @@ class ABEMLS_project():
             Measures.Temp
         FROM DPV, DP_ABMN, Measures
         WHERE
-            DPV.MeasureID=Measures.MeasureID AND
+            DPV.MeasureID=Measures.ID AND
             DPV.DPID=DP_ABMN.ID AND
             DPV.DatatypeID=5
     """
@@ -191,6 +191,21 @@ class ABEMLS_project():
         GROUP BY Tasks.ID
     """
 
+    GET_TASK_COORDS_SQL = """
+        SELECT
+            Stations.TaskID,
+            Tasks.Name AS TaskName,
+            Stations.ID AS StationID,
+            AVG(Measures.PosLatitude),
+            AVG(Measures.PosLongitude)
+        FROM Stations
+        LEFT JOIN Measures ON Stations.ID = Measures.StationID
+        LEFT JOIN Tasks ON Tasks.ID = Stations.TaskID
+        WHERE Stations.TaskID=? AND Measures.PosQuality=3
+        GROUP BY StationID 
+    """    
+    
+    
     HAS_MEASUREMENTS_SQL = """
         SELECT
             DPV.TaskID,
@@ -567,6 +582,41 @@ class ABEMLS_project():
         else:
             return None
 
+            
+    def get_task_coords(self, task_id=1, cur=None):
+        """Get the station coordinates of the specified task
+
+        :param task_id: integer
+            The index (1-based) of the task to retrieve. If omitted, TaskID 1 is returned.
+        :param cur: sql cursor
+            Cursor into the sql database. If omitted, a temporary cursor will be created.
+
+        Returns: dataframe
+            Returns a dataframe with information about each station in the task .
+        """
+
+        temp_cur = False
+        if cur is None:
+            temp_cur = True
+            conn = sqlite3.connect(self.filename)
+            cur = conn.cursor()
+
+        #pdb.set_trace()
+        cur.execute(self.GET_TASK_COORDS, (int(task_id),))
+        task = cur.fetchall()
+        task_cols = [c[0] for c in cur.description]
+
+        if task:
+            result = DataFrame(task, columns=task_cols)
+        else:
+            result = DataFrame()
+
+        if temp_cur:
+            cur.close()
+            conn.close()
+
+        return result
+            
 
 
     def has_measurements(self, task_id=None, cur=None):
