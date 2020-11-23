@@ -9,19 +9,19 @@ from lxml import etree
 
 
 DATATYPES = dict([
- (1,  {'Name': u'SP',         'Symbol': u'SP',         'Unit': u'V',         'Explanation': u'SP'}),
- (2,  {'Name': u'rho_app',    'Symbol': u'\\rho_a',    'Unit': u'\\Omega m', 'Explanation': u'Apparent Resistivity value'}),
- (3,  {'Name': u'IP',         'Symbol': u'IP',         'Unit': u'mV/V',      'Explanation': u'One IP window'}),
- (4,  {'Name': u'SNR',        'Symbol': u'SNR',        'Unit': u'dB',        'Explanation': u'Signal to noise ratio'}),
- (5,  {'Name': u'R',          'Symbol': u'R',          'Unit': u'\\omega',   'Explanation': u'Resistance'}),
- (6,  {'Name': u'I',          'Symbol': u'I',          'Unit': u'A',         'Explanation': u'Current'}),
- (7,  {'Name': u'delta_U',    'Symbol': u'\\deltaU',   'Unit': u'V',         'Explanation': u'ResDeltaVoltage'}),
- (8,  {'Name': u'm',          'Symbol': u'm',          'Unit': u'ms',        'Explanation': u'Chargeability'}),
- (9,  {'Name': u'IP_delta_U', 'Symbol': u'IP\\deltaU', 'Unit': u'V',         'Explanation': u'IPDeltaVoltage'}),
- (10, {'Name': u'Avg',        'Symbol': u'V',          'Unit': u'V',         'Explanation': u'Average'}),
- (11, {'Name': u'Signal',     'Symbol': u'V',          'Unit': u'V',         'Explanation': u'Intermediary result'}),
- (12, {'Name': u'IPSP',       'Symbol': u'V',          'Unit': u'V',         'Explanation': u'SP compensation'}),
- (13, {'Name': u'Temp',       'Symbol': u'T',          'Unit': u'C',         'Explanation': u'Temperature'}),
+ (1,  {'Name': 'SP',         'Symbol': 'SP',         'Unit': 'V',         'Explanation': 'SP'}),
+ (2,  {'Name': 'rho_app',    'Symbol': '\\rho_a',    'Unit': '\\Omega m', 'Explanation': 'Apparent Resistivity value'}),
+ (3,  {'Name': 'IP',         'Symbol': 'IP',         'Unit': 'mV/V',      'Explanation': 'One IP window'}),
+ (4,  {'Name': 'SNR',        'Symbol': 'SNR',        'Unit': 'dB',        'Explanation': 'Signal to noise ratio'}),
+ (5,  {'Name': 'R',          'Symbol': 'R',          'Unit': '\\omega',   'Explanation': 'Resistance'}),
+ (6,  {'Name': 'I',          'Symbol': 'I',          'Unit': 'A',         'Explanation': 'Current'}),
+ (7,  {'Name': 'delta_U',    'Symbol': '\\deltaU',   'Unit': 'V',         'Explanation': 'ResDeltaVoltage'}),
+ (8,  {'Name': 'm',          'Symbol': 'm',          'Unit': 'ms',        'Explanation': 'Chargeability'}),
+ (9,  {'Name': 'IP_delta_U', 'Symbol': 'IP\\deltaU', 'Unit': 'V',         'Explanation': 'IPDeltaVoltage'}),
+ (10, {'Name': 'Avg',        'Symbol': 'V',          'Unit': 'V',         'Explanation': 'Average'}),
+ (11, {'Name': 'Signal',     'Symbol': 'V',          'Unit': 'V',         'Explanation': 'Intermediary result'}),
+ (12, {'Name': 'IPSP',       'Symbol': 'V',          'Unit': 'V',         'Explanation': 'SP compensation'}),
+ (13, {'Name': 'Temp',       'Symbol': 'T',          'Unit': 'C',         'Explanation': 'Temperature'}),
 ])
 
 
@@ -378,7 +378,7 @@ class ABEMLS_project():
         if self.tasks is None:
             self.get_tasklist()
 
-        print "Tasks in project:"
+        print("Tasks in project:")
         for id, t in self.tasks.iterrows():
             # print ("Task ID: {0}   "
             #        "Name: {1:8}  "
@@ -386,8 +386,8 @@ class ABEMLS_project():
             #        "Array: {3}   "
             #        "Datapts: {4}   "
             #        "Time: {5}".format(t[0],t[1],t[5],t[8],t[10],t[9]))
-            print "-"*40
-            print t
+            print("-"*40)
+            print(t)
 
     def get_task(self, task_id=1, condensed=False, cur=None):
         """Read task data from db file
@@ -664,7 +664,7 @@ class ABEMLS_project():
         if not fname:
             raise ValueError('No valid filename passed to get_spreadfile.')
         basename = os.path.basename(fname)
-        if basename in self.spread_files.keys():
+        if basename in list(self.spread_files.keys()):
             tree = self.spread_files[basename]
         else:
             if not path:
@@ -703,7 +703,7 @@ class ABEMLS_project():
         try:
             return int(tree.xpath(xpstring)[0])
         except:
-            print "Could not find electrode: " + xpstring
+            print("Could not find electrode: " + xpstring)
             return None
 
 
@@ -719,9 +719,9 @@ def condense_measurements(data, datatype_dict):
 
     # raise NotImplementedError('condense_measurements method not yet finished!')
 
-    rep_dict = {u'\u03c1': r'rho_',
-                u'\u0394': r'd',
-                u'\u03a9': r'Ohm'}
+    rep_dict = {'\u03c1': r'rho_',
+                '\u0394': r'd',
+                '\u03a9': r'Ohm'}
 
 
     MeasureIDs = data.MeasureID.unique()
@@ -770,7 +770,7 @@ def condense_measurements(data, datatype_dict):
                     n = datatype_dict[dtid]['Name']
 
                     # Replace known non-ascii unicode chars from names
-                    for k,v in rep_dict.items():
+                    for k,v in list(rep_dict.items()):
                         n = n.replace(k,v)
 
                     df[n] = np.array(d.DataValue, dtype=float)[0]
