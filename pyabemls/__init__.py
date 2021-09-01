@@ -1,5 +1,6 @@
 from tables import *
 import numpy as np
+import pathlib
 import os.path
 import warnings
 import sqlite3
@@ -705,6 +706,58 @@ class ABEMLS_project():
         except:
             print("Could not find electrode: " + xpstring)
             return None
+
+    def export_dat(self, task_id, filename=None, out_path=None, exclude_negative=True, datatype='resistivity'):
+        
+        tasklist = self.get_tasklist()
+        task_info = tasklist.set_index('ID').loc[task_id]
+    
+        data, ecr_data = self.get_task(task_id=task_id)
+        
+        if datatype == 'resistivity':
+            resistivity = data[data['DatatypeID']==2]    # get measured resistivities
+            #dat = resistivity[['MeasureID','Channel','APosX','APosZ','BPosX','BPosZ','MPosX','MPosZ','NPosX','NPosZ','DataValue','Time']].copy()
+            dat = resistivity[['APosX','APosZ','BPosX','BPosZ','MPosX','MPosZ','NPosX','NPosZ','DataValue']].copy()
+        else:
+            resistance = data[(data['DatatypeID']==5) & (data['Channel']>0)]     # get measured resistances
+            #dat = resistance[['MeasureID','Channel','APosX','APosZ','BPosX','BPosZ','MPosX','MPosZ','NPosX','NPosZ','DataValue','Time']].copy()
+            dat = resistance[['APosX','APosZ','BPosX','BPosZ','MPosX','MPosZ','NPosX','NPosZ','DataValue']].copy()
+            
+        if exclude_negative:
+            dat = dat[dat['DataValue']>=0]
+
+        dat.insert(loc=0, column='n_elec', value=4)
+
+        xspc = task_info['SpacingX']
+        dat.loc[:,['APosX','BPosX','MPosX','NPosX']] = dat[['APosX','BPosX','MPosX','NPosX']]*xspc
+
+        if filename is None:
+            filename = pathlib.Path(self.filename).parent.stem
+        
+        if out_path is None:
+            out_path = pathlib.Path(self.filename).parent
+        else:
+            out_path = pathlib.Path(out_path)
+        
+        outlist = []
+        outlist.append(self.filename)
+        outlist.append('{0:.2f}'.format(xspc))
+        outlist.append('11')
+        outlist.append('{0:.0f}'.format(task_info['ArrayCode']))
+        outlist.append('Type of measurement (0=app.resistivity, 1=resistance)')
+        if datatype == 'resistivity':
+            outlist.append('0')
+        else:
+            outlist.append('1')
+            
+        outlist.append('{0:.0f}'.format(len(dat)))
+        outlist.append('2')   # type of x-location, 1=True horizontal, 2=distance along ground surface
+        outlist.append('0')   # IP data included, 0=No, 1=Yes
+        outlist.append(dat[dat['DataValue']>=0][::-1].to_string(header=None, index=False, index_names=False))
+        outlist.append('0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0')
+        
+        with open((out_path/filename).with_suffix('.dat'), 'w') as f:
+            f.write('\n'.join(outlist))
 
 
 
