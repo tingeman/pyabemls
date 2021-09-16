@@ -707,7 +707,7 @@ class ABEMLS_project():
             print("Could not find electrode: " + xpstring)
             return None
 
-    def export_dat(self, task_id, filename=None, out_path=None, exclude_negative=True, datatype='resistivity'):
+    def export_dat(self, task_id=1, filename=None, out_path=None, exclude_negative=True, datatype='resistivity'):
         
         tasklist = self.get_tasklist()
         task_info = tasklist.set_index('ID').loc[task_id]
