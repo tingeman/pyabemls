@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyabemls"
+version = "0.1"
+description = "Package for reading ABEM Terrameter LS project files."
+readme = "README.md"  # If you have a README file
+authors = [
+    { name = "Thomas Ingeman-Nielsen", email = "thin@dtu.dk" }
+]
+license = { text = "GNU General Public License (GPL)" }
+keywords = ["ABEM", "Terrameter LS"]
+classifiers = [
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.12",
+    "Development Status :: 3 - Alpha",
+    "Operating System :: Microsoft :: Windows",
+    "License :: OSI Approved :: GNU General Public License (GPL)",
+    "Intended Audience :: Science/Research",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering"
+]
+requires-python = ">=3.10"
+dependencies = [
+    "numpy >= 2.1.0",
+    "pandas >= 2.2.0",
+    "lxml >= 5.3.0",
+    "tables >= 3.10.0"
+]
+
+[project.urls]
+homepage = "https://github.com/tingeman/pyabemls"  # Replace with the correct URL if available
+
+[tool.setuptools]
+packages = ["pyabemls"]  # Alternatively, use "find" to automatically discover packages
+include-package-data = true
+
+[tool.setuptools.package-data]
+# Include specific file types in all packages:
+"*" = ["*.xml", "*.txt", "*.FOR", "*.for", "*.pyf", "*.pyd"]
+
+[project.optional-dependencies]
+# Define optional dependencies if any, e.g., for development or testing
